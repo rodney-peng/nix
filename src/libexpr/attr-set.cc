@@ -35,10 +35,13 @@ void EvalState::mkAttrs(Value & v, size_t capacity)
 /* Create a new attribute named 'name' on an existing attribute set stored
    in 'vAttrs' and return the newly allocated Value which is associated with
    this attribute. */
-Value * EvalState::allocAttr(Value & vAttrs, const Symbol & name)
+Value * EvalState::allocAttr(Value & vAttrs, const Symbol & name, const Pos * pos)
 {
     Value * v = allocValue();
-    vAttrs.attrs->push_back(Attr(name, v));
+    if (pos)
+        vAttrs.attrs->push_back(Attr(name, v, (Pos *)pos));
+    else
+        vAttrs.attrs->push_back(Attr(name, v));
     return v;
 }
 

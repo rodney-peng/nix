@@ -267,7 +267,7 @@ public:
     Value * allocValue();
     Env & allocEnv(size_t size);
 
-    Value * allocAttr(Value & vAttrs, const Symbol & name);
+    Value * allocAttr(Value & vAttrs, const Symbol & name, const Pos * pos = NULL);
 
     Bindings * allocBindings(size_t capacity);
 
@@ -314,11 +314,19 @@ private:
     friend struct ExprOpConcatLists;
     friend struct ExprSelect;
     friend void prim_getAttr(EvalState & state, const Pos & pos, Value * * args, Value & v);
+
+public:
+
+    bool getDefine;
+    Pos  posDefine;
+    int  selectDepth;
 };
 
 
 /* Return a string representing the type of the value `v'. */
 string showType(const Value & v);
+
+void printAttrsPos(std::ostream & str, const Value & v);
 
 /* Decode a context string ‘!<name>!<path>’ into a pair <path,
    name>. */

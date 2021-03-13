@@ -166,6 +166,20 @@ string showType(const Value & v)
 }
 
 
+void printAttrsPos(std::ostream & str, const Value & v)
+{
+    if (v.type == tAttrs)
+    {
+        str << "{" << std::endl;
+        for (unsigned int i = 0; i < v.attrs->size(); i++) {
+            auto & a = (*v.attrs)[i];
+            str << a.name << " = " << (a.pos ? *a.pos : Pos()) << ";" << std::endl;
+        }
+        str << "}" << std::endl;
+    }
+}
+
+
 #if HAVE_BOEHMGC
 /* Called when the Boehm GC runs out of memory. */
 static void * oomHandler(size_t requested)
@@ -307,6 +321,7 @@ EvalState::EvalState(const Strings & _searchPath, ref<Store> store)
     , store(store)
     , baseEnv(allocEnv(128))
     , staticBaseEnv(false, 0)
+    , selectDepth(0)
 {
     countCalls = getEnv("NIX_COUNT_CALLS", "0") != "0";
 
@@ -978,6 +993,8 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
     Pos * pos2 = 0;
     Value * vAttrs = &vTmp;
 
+    state.selectDepth++;
+
     e->eval(state, env, vTmp);
 
     try {
@@ -992,6 +1009,7 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
                     (j = vAttrs->attrs->find(name)) == vAttrs->attrs->end())
                 {
                     def->eval(state, env, v);
+                    --state.selectDepth;
                     return;
                 }
             } else {
@@ -1004,6 +1022,10 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
             if (state.countCalls && pos2) state.attrSelects[*pos2]++;
         }
 
+        if (state.getDefine && state.selectDepth == 1) {
+            state.posDefine = (pos2 ? *pos2 : this->pos);
+        }
+
         state.forceValue(*vAttrs, ( pos2 != NULL ? *pos2 : this->pos ) );
 
     } catch (Error & e) {
@@ -1014,6 +1036,8 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
     }
 
     v = *vAttrs;
+
+    --state.selectDepth;
 }
 
 
@@ -1118,7 +1142,8 @@ void EvalState::callFunction(Value & fun, Value & arg, Value & v, const Pos & po
         /* !!! Should we use the attr pos here? */
         Value v2;
         callFunction(*found->value, fun2, v2, pos);
-        return callFunction(v2, arg, v, pos);
+        callFunction(v2, arg, v, pos);
+        return;
       }
     }
 

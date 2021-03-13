@@ -1378,7 +1378,7 @@ static void prim_mapAttrs(EvalState & state, const Pos & pos, Value * * args, Va
         Value * vFun2 = state.allocValue();
         mkString(*vName, i.name);
         mkApp(*vFun2, *args[0], *vName);
-        mkApp(*state.allocAttr(v, i.name), *vFun2, *i.value);
+        mkApp(*state.allocAttr(v, i.name, i.pos), *vFun2, *i.value);
     }
 }
 

@@ -28,7 +28,7 @@ enum OutputKind { okPlain, okXML, okJSON };
 
 void processExpr(EvalState & state, const Strings & attrPaths,
     bool parseOnly, bool strict, Bindings & autoArgs,
-    bool evalOnly, OutputKind output, bool location, Expr * e)
+    bool evalOnly, bool getDefine, OutputKind output, bool location, Expr * e)
 {
     if (parseOnly) {
         std::cout << format("%1%\n") % *e;
@@ -36,6 +36,7 @@ void processExpr(EvalState & state, const Strings & attrPaths,
     }
 
     Value vRoot;
+    state.getDefine = getDefine;
     state.eval(e, vRoot);
 
     for (auto & i : attrPaths) {
@@ -43,7 +44,18 @@ void processExpr(EvalState & state, const Strings & attrPaths,
         state.forceValue(v);
 
         PathSet context;
-        if (evalOnly) {
+        if (getDefine) {
+            Value vRes;
+            if (autoArgs.empty())
+                vRes = v;
+            else
+                state.autoCallFunction(autoArgs, v, vRes);
+            if (evalOnly)
+                printAttrsPos(std::cout, vRes);
+            else
+                std::cout << state.posDefine << std::endl;
+        }
+        else if (evalOnly) {
             Value vRes;
             if (autoArgs.empty())
                 vRes = v;
@@ -92,6 +104,7 @@ static int _main(int argc, char * * argv)
         bool fromArgs = false;
         bool findFile = false;
         bool evalOnly = false;
+        bool getDefine = false;
         bool parseOnly = false;
         OutputKind outputKind = okPlain;
         bool xmlOutputSourceLocation = true;
@@ -116,6 +129,8 @@ static int _main(int argc, char * * argv)
                 fromArgs = true;
             else if (*arg == "--eval" || *arg == "--eval-only")
                 evalOnly = true;
+            else if (*arg == "--getdef" || *arg == "-D")
+                getDefine = true;
             else if (*arg == "--read-write-mode")
                 wantsReadWrite = true;
             else if (*arg == "--parse" || *arg == "--parse-only")
@@ -175,7 +190,7 @@ static int _main(int argc, char * * argv)
         if (readStdin) {
             Expr * e = state->parseStdin();
             processExpr(*state, attrPaths, parseOnly, strict, autoArgs,
-                evalOnly, outputKind, xmlOutputSourceLocation, e);
+                evalOnly, getDefine, outputKind, xmlOutputSourceLocation, e);
         } else if (files.empty() && !fromArgs)
             files.push_back("./default.nix");
 
@@ -184,7 +199,7 @@ static int _main(int argc, char * * argv)
                 ? state->parseExprFromString(i, absPath("."))
                 : state->parseExprFromFile(resolveExprPath(state->checkSourcePath(lookupFileArg(*state, i))));
             processExpr(*state, attrPaths, parseOnly, strict, autoArgs,
-                evalOnly, outputKind, xmlOutputSourceLocation, e);
+                evalOnly, getDefine, outputKind, xmlOutputSourceLocation, e);
         }
 
         state->printStats();
